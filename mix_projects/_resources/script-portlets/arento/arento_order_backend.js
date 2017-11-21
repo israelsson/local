@@ -1,19 +1,25 @@
+/* globals Packages, request, out */
+
 ( function(){
+
+    'use strict';
 
     var xmlBegining      = '<?xml version="1.0" encoding="UTF-8"?><request><body>',
         xmlEnd           = '</body></request>',
         servletRequest   = request.getServletRequest(),
         session          = servletRequest.getSession(),
         token            = session.getAttribute( 'kobra-token' ),
-        utils            = request.getAttribute( "sitevision.utils" ),
+        utils            = request.getAttribute( 'sitevision.utils' ),
         logUtil          = utils.getLogUtil(),
         serviceUrl       = 'http://172.25.105.1:80/kobrahttp/kobrahttp.exe?function=KUTW760',
         tomorrowsDate,
         PARAMS     = {
-            ADD: 'add',
-            UPDATE: 'update',
-            DELETE: 'delete',
-            GET_CART: 'get'
+            ADD:        'add',
+            UPDATE:     'update',
+            DELETE:     'delete',
+            GET_CART:   'get',
+            EMPTY:      'empty',
+            GET_PAGE:   'getProductPage'
         };
 
     function debugNode( aNode ){
@@ -78,7 +84,7 @@
                 postMethod.releaseConnection();
 
             } catch( e ) {
-                logUtil.error( 'Could not read xml response from "'+ serviceUrl +'": ' + e );
+                logUtil.error( '[ORDERS BACKEND] Could not read xml response from "'+ serviceUrl +'": ' + e );
             }
         } else {
             out.println( "<div>Felkod från "+ serviceUrl +"</div>");
@@ -109,27 +115,34 @@
         return xmlDate;
     }
 
-    function deleteItem( aRentalCode ){
-        var xml = xmlBegining + '<deleteItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><firm>45</firm></deleteItem>' + xmlEnd;
+    function deleteItem( aRentalCode, anItemId ){
+        var xml = xmlBegining + '<deleteItem><token>'+ token +'</token><itemID>'+ anItemId +'</itemID><rentalCode>'+ aRentalCode +'</rentalCode><firm>45</firm></deleteItem>' + xmlEnd;
 
         return xml;
     }
 
     function getCart(){
         var xml = xmlBegining + '<getCart><token>'+ token +'</token><firm>45</firm></getCart>' + xmlEnd;
+        return xml;
+    }
 
+    function emptyCart() {
+        var xml = xmlBegining + '<emptyCart><token>' + token + '</token><firm>45</firm></emptyCart>' + xmlEnd;
         return xml;
     }
 
     function handleParam( aParameter ){
         var rentalCodeParam  = request.getParameter( 'artNo' ),
-            amountParam      = '1',
+            amountParam      = ( request.getParameter( 'amount' ) && !''.equals( request.getParameter( 'amount' ) ) ? request.getParameter( 'amount' ) : '1' ),
             fromDateParam    = ( request.getParameter( 'fromDate' ) && !''.equals( request.getParameter( 'fromDate' ) ) ? request.getParameter( 'fromDate' ) : tomorrowsDate ),
-            toDateParam      = ( request.getParameter( 'toDate' ) && !''.equals( request.getParameter( 'toDate' ) ) ? request.getParameter( 'toDate' ) : tomorrowsDate  ),
+            toDateParam      = ( request.getParameter( 'toDate' ) && !''.equals( request.getParameter( 'toDate' ) ) ? request.getParameter( 'toDate' ) : tomorrowsDate ),
+            itemIDParam      = ( request.getParameter( 'itemID' ) && !''.equals( request.getParameter( 'itemID' ) ) ? request.getParameter( 'itemID' ) : '1' ),
+            rentalCodeParam2 = request.getParameter( 'rentalCode' ),
             xmlToSend,
             xmlResponse,
             xmlResponseDoc,
-            success = false;
+            success = false,
+            message;
 
         if ( PARAMS.ADD.equals( aParameter ) ) {
 
@@ -139,17 +152,41 @@
                 xmlResponse     = sendPOST( xmlToSend );
                 xmlResponseDoc  = createXMLDoc( xmlResponse );
                 //debugNode( xmlResponseDoc );
-                success         = xmlResponseDoc.getElementsByTagName( 'message' ).item( 0 ).getTextContent().equals( 'SUCCESSFUL' );
+
+                try {
+                    success = xmlResponseDoc.getElementsByTagName( 'message' ).item( 0 ).getTextContent();
+                } catch( e ) {
+
+                    try {
+                        message = xmlResponseDoc.getElementsByTagName( 'errorMsg' ).item( 0 ).getTextContent();
+                        logUtil.error( '[ORDERS BACKEND ADD] Could not add product to shopping cart, message: ' + message + ': ' + e );
+                    } catch( e ) {
+                        logUtil.error( '[ORDERS BACKEND ADD] Could not add product to shopping cart, NO message provided from external part: ' + e );
+                    }
+                }
 
             } catch ( e ) {
 
-                logUtil.error( 'Error when adding product to shopping cart: ' + e );
+                logUtil.error( '[ORDERS BACKEND ADD] Error when adding product to shopping cart: ' + e );
 
             }
 
         } else if ( PARAMS.UPDATE.equals( aParameter ) ) {
 
         } else if ( PARAMS.DELETE.equals( aParameter ) ) {
+
+            try {
+                xmlToSend       = deleteItem( rentalCodeParam2, itemIDParam );
+                xmlResponse     = sendPOST( xmlToSend );
+                xmlResponseDoc  = createXMLDoc( xmlResponse );
+
+                success = xmlResponseDoc.getElementsByTagName( 'message' ).item( 0 ).getTextContent();
+
+            } catch ( e ) {
+
+                success = xmlResponseDoc.getElementsByTagName( 'errorMsg' ).item( 0 ).getTextContent();
+                logUtil.error( '[ORDERS BACKEND DELETE] Could not delete product from cart: ' + e );
+            }
 
         } else if ( PARAMS.GET_CART.equals( aParameter ) ) {
 
@@ -164,18 +201,52 @@
 
             } catch ( e ) {
 
-                logUtil.error( 'Could not get shopping cart: ' + e );
+                logUtil.error( '[ORDERS BACKEND GET] Could not get shopping cart: ' + e );
 
             }
 
+        } else if ( PARAMS.EMPTY.equals( aParameter ) ) {
+
+            try {
+                xmlToSend       = emptyCart();
+                xmlResponse     = sendPOST( xmlToSend );
+                xmlResponseDoc  = createXMLDoc( xmlResponse );
+                success = xmlResponseDoc.getElementsByTagName( 'message' ).item( 0 ).getTextContent();
+                logUtil.info( '[ORDERS BACKEND EMPTY] Empty shopping cart: ' +  success );
+
+            } catch ( e ) {
+
+                try {
+                    success = xmlResponseDoc.getElementsByTagName( 'errorMsg' ).item( 0 ).getTextContent();
+                    logUtil.error( '[ORDERS BACKEND EMPTY] Empty shopping cart: ' +  success );
+                } catch ( e ) {
+
+                }
+
+                logUtil.error( '[ORDERS BACKEND EMPTY] Could not empty cart: ' + e );
+            }
+        } else if ( PARAMS.GET_PAGE.equals( aParameter ) ){
+
+            try {
+                xmlToSend       = getCart();
+                xmlResponse     = sendPOST( xmlToSend );
+                //xmlResponseDoc  = createXMLDoc( xmlResponse );
+
+                success = true;
+
+                return xmlToJSON( xmlResponse );
+
+            } catch ( e ) {
+
+                logUtil.error( '[ORDERS BACKEND GET PAGE] Could not get shopping cart: ' + e );
+
+            }
         }
 
         return success;
-
     }
 
     tomorrowsDate = getTomorrowsDate();
     out.println( handleParam( request.getParameter( 'action' ) ) );
 
-
-}() )
+}() );

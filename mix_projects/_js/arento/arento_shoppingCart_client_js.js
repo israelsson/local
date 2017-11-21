@@ -1,3 +1,5 @@
+/* globals jQuery */
+
 var BV = BV || {},
     // Toolbox Library
     _b = _b || {};
@@ -5,7 +7,10 @@ var BV = BV || {},
 ( function () {
     /* jshint ignore:start */
     // jscs:disable
-    var cache   = {};
+    var cache       = {};
+    _b.backendURL   = '/4.675446715f31d31b2a208/12.675446715f31d31b2a211.portlet';
+    _b.jq           = jQuery;
+
     _b.template = function tmpl( str, data ) {
         // Figure out if we're getting a template, or if we need to
         // load the template - and be sure to cache the result.
@@ -36,30 +41,106 @@ var BV = BV || {},
     /* jshint ignore:end */
 }() );
 
+function createLocalProduct( anItem, anImg ) {
+
+    'use strict';
+
+    var product             = {};
+    product.amount      = anItem[ 'amount' ];
+    product.days        = anItem[ 'days' ];
+    product.description = anItem[ 'description' ];
+    product.fromDate    = anItem[ 'fromDate' ];
+    product.itemID      = anItem[ 'itemID' ];
+    product.price       = anItem[ 'price' ];
+    product.rentalCode  = anItem[ 'rentalCode' ];
+    product.toDate      = anItem[ 'toDate' ];
+    product.img         = anImg;
+
+    return product;
+}
+
+function getShoppingCart( anImg ){
+
+    'use strict';
+
+    var jq = _b.jq;
+
+    jq.ajax( {
+        url: _b.backendURL,
+        data: { action : 'getProductPage'},
+        success: function( data ) {
+
+            // Make sure to empty shopping cart before to build it
+            shoppingCart = [];
+
+            var responseJSON = JSON.parse( data ),
+                item = responseJSON[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'item' ],
+                isItemArray = Array.isArray( item ),
+                product;
+
+            if ( isItemArray ) {
+
+                for (var i = 0; i < item.length; i++ ) {
+
+                    var thisItem = item[ i ];
+                    shoppingCart.push( createLocalProduct( thisItem, anImg ) );
+                }
+
+            } else {
+
+                shoppingCart.push( createLocalProduct( item, anImg ) );
+
+            }
+
+            updateShoppingCartText();
+            saveShoppingCartToSession();
+        }
+
+    } );
+}
 
 var jsonResponseGetCart;
 function ajaxAction( aDataObject ){
 
-    var backend = '/4.675446715f31d31b2a208/12.675446715f31d31b2a211.portlet',
-        jq = jQuery;
+    'use strict';
 
+    var jq = _b.jq,
+        backend = _b.backendURL;
 
     jq.ajax({
         url: backend,
         data: aDataObject,
         success: function( data ) {
 
-            if ( aDataObject.action == 'get' ) {
+            if ( aDataObject.action === 'get' ) {
                 jsonResponseGetCart = JSON.parse( data );
                 jq( '.shoppingCartTotalPrice' ).text( jsonResponseGetCart[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'totalPrice' ] );
                 jq( '.shoppingCartSummary' ).append( '<pre style="white-space: pre-wrap;">'+ JSON.stringify( jsonResponseGetCart ) +'</pre>' );
+
+            } else if ( aDataObject.action === 'add' ) {
+
+                if ( data.trim() === 'SUCCESSFUL' ) {
+
+                    var anImageSrc = aDataObject.img;
+                    getShoppingCart( anImageSrc );
+
+                }
+
+            } else if ( aDataObject.action === 'delete' ) {
+
+                // Remove from array
+                shoppingCart.splice( aDataObject.arrayIndex, 1 );
+
+                saveShoppingCartToSession();
+                updateShoppingCartText();
+
             }
         }
     });
 }
 
-var shoppingCart
-if ( sessionStorage.getItem( 'shoppingCart' ) == null ) {
+var shoppingCart;
+if ( sessionStorage.getItem( 'shoppingCart' ) === null ) {
     shoppingCart = [];
 } else {
     shoppingCart = JSON.parse( sessionStorage.getItem( 'shoppingCart' ) );
@@ -67,74 +148,44 @@ if ( sessionStorage.getItem( 'shoppingCart' ) == null ) {
 
 /*
  function controlIfProductExistsInShoppingCart( anArtNo ){
- var localArtNo;
+     var localArtNo;
 
- for( var i = 0; i < shoppingCart.length; i++) {
- localArtNo = shoppingCart[ i ].artNo;
+     for( var i = 0; i < shoppingCart.length; i++) {
+        localArtNo = shoppingCart[ i ].artNo;
+        if ( localArtNo === anArtNo ) {
+            shoppingCart[ i ].amount += 1;
 
- if ( localArtNo === anArtNo ) {
- shoppingCart[ i ].amount += 1;
+        return true;
+        }
+     }
 
- return true;
- }
- }
-
- return false;
+     return false;
  }
  */
 
-function addToShoppingCart( anArtNo, aProductName, anImgSrc, aDesc, aFromDate, aToDate, anAmount ){
+function addToShoppingCart( anArtNo, aProductName, anImgSrc, aDesc, aFromDate, aToDate ){
 
-    /*
-     var product,
-     existingProduct = controlIfProductExistsInShoppingCart( anArtNo );
+    'use strict';
 
-     if ( !existingProduct ) {
-     product = {};
-     product.artNo = anArtNo;
-     product.productName = aProductName;
-     product.imgSrc = anImgSrc;
-     product.desc = aDesc;
-     product.fromDate = aFromDate;
-     product.toDate = aToDate;
-     product.amount = anAmount;
-     shoppingCart.push( product );
-     }
-     */
-
-    var product = {};
-    product.artNo = anArtNo;
-    product.productName = aProductName;
-    product.imgSrc = anImgSrc;
-    product.desc = aDesc;
-    product.fromDate = aFromDate;
-    product.toDate = aToDate;
-    product.amount = anAmount;
-    shoppingCart.push( product );
-
-    saveShoppingCartToSession();
-
+    var dataObject = {
+        action: 'add',
+        artNo: anArtNo,
+        fromDate: aFromDate,
+        toDate: aToDate,
+        img: anImgSrc
+    };
+    ajaxAction( dataObject );
 }
 
-function removeProductFromShoppingCartArray( aJQ, anIndex ){
+function updateShoppingCartText() {
 
-    var productToRemove = shoppingCart[ anIndex ];
+    'use strict';
 
-    shoppingCart.splice( anIndex, 1 );
-    saveShoppingCartToSession();
-    updateShoppingCartText( aJQ );
-
-    productToRemove.action = 'remove';
-    ajaxAction( productToRemove );
-    ajaxAction( { action: 'get' } );
-
-}
-
-function updateShoppingCartText( aJQ ) {
     var noArts = shoppingCart.length,
-        textHolder = aJQ('.shopingCart > div');
+        jq = _b.jq,
+        textHolder = jq('.shopingCart > div');
 
-    if (noArts == 0) {
+    if (noArts === 0) {
         textHolder.text('Orderlistan är tom');
     } else if (noArts == 1) {
         textHolder.text(noArts + ' Produkt');
@@ -148,6 +199,8 @@ function saveShoppingCartToSession(){
 }
 
 ( function( jq ){
+
+    'use strict';
 
     function addClickToShoppingCart(){
         jq( '.shopingCart' ).on( 'click', function( e ){
@@ -175,9 +228,7 @@ function saveShoppingCartToSession(){
                 fromDate            = contentContainer.find( 'input[name="daterange"]' ).first().val(),
                 toDate              = contentContainer.find( 'input[name="daterange"]' ).last().val(),
                 imgSrc              = contentContainer.parent().find( '.bvArentoProductImage img' ).attr( 'src' ),
-                desc                = '',
-                amount              = 1,
-                dataObject          = { action: 'add', artNo: artNo, fromDate: fromDate, toDate: toDate };
+                desc                = '';
 
             if ( !fromDate ) {
                 fromDate = getTomorrowsDate();
@@ -191,9 +242,7 @@ function saveShoppingCartToSession(){
                 desc += jq( k ).text() + ' ';
             } );
 
-            addToShoppingCart( artNo, productName, imgSrc, desc, fromDate, toDate, amount );
-            updateShoppingCartText( jq );
-            ajaxAction( dataObject );
+            addToShoppingCart( artNo, productName, imgSrc, desc, fromDate, toDate );
 
         });
     }
@@ -203,10 +252,12 @@ function saveShoppingCartToSession(){
         jq( '.ShoppingCartAdminRemove' ).on( 'click', function( e ){
             var that       = jq( this ),
                 parentLi   = that.closest( 'li' ),
-                parentUl   = parentLi.closest( 'ul' ),
-                index      = parentLi.index();
+                index      = parentLi.index(),
+                productToRemove = shoppingCart[ index ];
 
-            removeProductFromShoppingCartArray( jq, index );
+            productToRemove.action = 'delete';
+            productToRemove.arrayIndex = index;
+            ajaxAction( productToRemove );
             parentLi.remove();
         });
     }
@@ -218,7 +269,7 @@ function saveShoppingCartToSession(){
             ajaxAction( { action: 'empty' } );
             shoppingCart = [];
             saveShoppingCartToSession();
-            updateShoppingCartText( jq );
+            updateShoppingCartText();
             ajaxAction( { action: 'get' } );
 
             jq( '#shoppingCartViewItems' ).empty();
@@ -233,7 +284,7 @@ function saveShoppingCartToSession(){
         addEmptyShoppingCart();
 
         if ( shoppingCart.length > 0 ) {
-            updateShoppingCartText( jq );
+            updateShoppingCartText();
         }
     });
 
