@@ -133,11 +133,11 @@
 
     function handleParam( aParameter ){
         var rentalCodeParam  = request.getParameter( 'artNo' ),
+            rentalCodeParam2 = request.getParameter( 'rentalCode' ),
             amountParam      = ( request.getParameter( 'amount' ) && !''.equals( request.getParameter( 'amount' ) ) ? request.getParameter( 'amount' ) : '1' ),
             fromDateParam    = ( request.getParameter( 'fromDate' ) && !''.equals( request.getParameter( 'fromDate' ) ) ? request.getParameter( 'fromDate' ) : tomorrowsDate ),
             toDateParam      = ( request.getParameter( 'toDate' ) && !''.equals( request.getParameter( 'toDate' ) ) ? request.getParameter( 'toDate' ) : tomorrowsDate ),
             itemIDParam      = ( request.getParameter( 'itemID' ) && !''.equals( request.getParameter( 'itemID' ) ) ? request.getParameter( 'itemID' ) : '1' ),
-            rentalCodeParam2 = request.getParameter( 'rentalCode' ),
             xmlToSend,
             xmlResponse,
             xmlResponseDoc,
