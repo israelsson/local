@@ -1,0 +1,32 @@
+
+%listLinks {
+    a {
+        &, &:link {
+            text-decoration: none;
+        }
+        &:visited {
+
+        }
+        @include on-event {
+            text-decoration: underline;
+        }
+    }
+}
+
+%contentLinks {
+    // Content links
+    a {
+        &, &:link {
+            text-decoration: none;
+        }
+        &:visited {
+
+        }
+        @include on-event {
+            text-decoration: underline;
+        }
+    }
+}
+
+
+
