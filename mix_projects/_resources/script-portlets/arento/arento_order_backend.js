@@ -66,7 +66,9 @@
             stringBuilder,
             line,
             httpClient = new Packages.org.apache.commons.httpclient.HttpClient(),
-            postMethod = new Packages.org.apache.commons.httpclient.methods.PostMethod( serviceUrl );
+            postMethod = new Packages.org.apache.commons.httpclient.methods.PostMethod( serviceUrl ),
+            responseCode,
+            responseInput;
 
         postMethod.setRequestBody( new Packages.java.io.ByteArrayInputStream( new Packages.java.lang.String( aXMLToSend ).getBytes() ) );
         responseCode = httpClient.executeMethod( postMethod );
@@ -87,7 +89,7 @@
                 logUtil.error( '[ORDERS BACKEND] Could not read xml response from "'+ serviceUrl +'": ' + e );
             }
         } else {
-            out.println( "<div>Felkod från "+ serviceUrl +"</div>");
+            out.println( '<div>Felkod från ' + serviceUrl + '</div>' );
         }
 
         return stringBuilder.toString();
@@ -101,16 +103,16 @@
         return jsonPrettyPrintString;
     }
 
-    function addItem( aRentalCode, anAmount, aFromDate, aToDate ){
+    function addItem( aRentalCode, anAmount, aFromDate, aToDate, anUrl ){
         //var xml = xmlBegining + '<addItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><amount>'+ anAmount +'</amount><days>1</days><firm>45</firm></addItem>' + xmlEnd;
-        var xmlDate = xmlBegining + '<addItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><amount>'+ anAmount +'</amount><fromDate>'+ aFromDate +'</fromDate><toDate>'+ aToDate +'</toDate><firm>45</firm></addItem>' + xmlEnd;
+        var xmlDate = xmlBegining + '<addItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><amount>'+ anAmount +'</amount><fromDate>'+ aFromDate +'</fromDate><toDate>'+ aToDate +'</toDate><url>'+ anUrl +'</url><firm>45</firm></addItem>' + xmlEnd;
 
         return xmlDate;
     }
 
-    function updateItem( aRentalCode, anAmount, aFromDate, aToDate ){
+    function updateItem( aRentalCode, anAmount, aFromDate, aToDate, anItemID ){
         //var xml = xmlBegining + '<updateItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><amount>'+ anAmount +'</amount><days></days><firm>45</firm></updateItem>' + xmlEnd;
-        var xmlDate = xmlBegining + '<updateItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><amount>'+ anAmount +'</amount><fromDate>'+ aFromDate +'</fromDate><toDate>'+ aToDate +'</toDate><firm>45</firm></updateItem>' + xmlEnd;
+        var xmlDate = xmlBegining + '<updateItem><token>'+ token +'</token><rentalCode>'+ aRentalCode +'</rentalCode><itemID>'+ anItemID +'</itemID><amount>'+ anAmount +'</amount><fromDate>'+ aFromDate +'</fromDate><toDate>'+ aToDate +'</toDate><firm>45</firm></updateItem>' + xmlEnd;
 
         return xmlDate;
     }
@@ -138,6 +140,7 @@
             fromDateParam    = ( request.getParameter( 'fromDate' ) && !''.equals( request.getParameter( 'fromDate' ) ) ? request.getParameter( 'fromDate' ) : tomorrowsDate ),
             toDateParam      = ( request.getParameter( 'toDate' ) && !''.equals( request.getParameter( 'toDate' ) ) ? request.getParameter( 'toDate' ) : tomorrowsDate ),
             itemIDParam      = ( request.getParameter( 'itemID' ) && !''.equals( request.getParameter( 'itemID' ) ) ? request.getParameter( 'itemID' ) : '1' ),
+            urlParam         = ( request.getParameter( 'url' ) && !''.equals( request.getParameter( 'url' ) ) ? request.getParameter( 'url' ) : '' ),
             xmlToSend,
             xmlResponse,
             xmlResponseDoc,
@@ -148,7 +151,7 @@
 
             try {
 
-                xmlToSend       = addItem( rentalCodeParam, amountParam, fromDateParam, toDateParam );
+                xmlToSend       = addItem( rentalCodeParam, amountParam, fromDateParam, toDateParam, urlParam );
                 xmlResponse     = sendPOST( xmlToSend );
                 xmlResponseDoc  = createXMLDoc( xmlResponse );
                 //debugNode( xmlResponseDoc );
@@ -172,6 +175,53 @@
             }
 
         } else if ( PARAMS.UPDATE.equals( aParameter ) ) {
+
+            var field = request.getParameter( 'field' ),
+                newValue;
+
+            if ( field.equals( 'dateFrom' ) ) {
+
+                newValue = request.getParameter( 'newValue' );
+                xmlToSend = updateItem( rentalCodeParam2, amountParam, newValue, toDateParam, itemIDParam );
+                out.println( xmlToSend );
+
+            } else if ( field.equals( 'dateTo' ) ) {
+
+                newValue = request.getParameter( 'newValue' );
+                xmlToSend = updateItem( rentalCodeParam2, amountParam, fromDateParam, newValue, itemIDParam );
+                out.println( xmlToSend );
+
+            } else {
+
+                xmlToSend = updateItem( rentalCodeParam2, amountParam, fromDateParam, toDateParam, itemIDParam );
+
+            }
+
+            xmlResponse     = sendPOST( xmlToSend );
+            xmlResponseDoc  = createXMLDoc( xmlResponse );
+            //debugNode( xmlResponseDoc );
+
+            try {
+
+                success = xmlResponseDoc.getElementsByTagName( 'message' ).item( 0 ).getTextContent();
+
+            } catch ( e ) {
+
+                try {
+
+                    success = xmlResponseDoc.getElementsByTagName( 'errorMsg' ).item( 0 ).getTextContent();
+
+                } catch ( e ) {
+
+                    logUtil.error( '[ORDERS BACKEND UPDATE] Error when updating product to' +
+                                   ' shopping, no error message provided: ' +
+                                   ' cart: ' + e );
+                }
+
+                logUtil.error( '[ORDERS BACKEND UPDATE] Error when updating product to shopping' +
+                               ' cart: ' + e );
+
+            }
 
         } else if ( PARAMS.DELETE.equals( aParameter ) ) {
 

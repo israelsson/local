@@ -41,7 +41,7 @@ var BV = BV || {},
     /* jshint ignore:end */
 }() );
 
-function createLocalProduct( anItem, anImg ) {
+function createLocalProduct( anItem ) {
 
     'use strict';
 
@@ -54,12 +54,12 @@ function createLocalProduct( anItem, anImg ) {
     product.price       = anItem[ 'price' ];
     product.rentalCode  = anItem[ 'rentalCode' ];
     product.toDate      = anItem[ 'toDate' ];
-    product.img         = anImg;
+    product.url         = anItem[ 'url' ];
 
     return product;
 }
 
-function getShoppingCart( anImg ){
+function getShoppingCart(){
 
     'use strict';
 
@@ -75,20 +75,19 @@ function getShoppingCart( anImg ){
 
             var responseJSON = JSON.parse( data ),
                 item = responseJSON[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'item' ],
-                isItemArray = Array.isArray( item ),
-                product;
+                isItemArray = Array.isArray( item );
 
             if ( isItemArray ) {
 
                 for (var i = 0; i < item.length; i++ ) {
 
                     var thisItem = item[ i ];
-                    shoppingCart.push( createLocalProduct( thisItem, anImg ) );
+                    shoppingCart.push( createLocalProduct( thisItem ) );
                 }
 
             } else {
 
-                shoppingCart.push( createLocalProduct( item, anImg ) );
+                shoppingCart.push( createLocalProduct( item ) );
 
             }
 
@@ -114,6 +113,7 @@ function ajaxAction( aDataObject ){
 
             if ( aDataObject.action === 'get' ) {
                 jsonResponseGetCart = JSON.parse( data );
+                jq( '.shoppingCartSummary pre' ).remove();
                 jq( '.shoppingCartTotalPrice' ).text( jsonResponseGetCart[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'totalPrice' ] );
                 jq( '.shoppingCartSummary' ).append( '<pre style="white-space: pre-wrap;">'+ JSON.stringify( jsonResponseGetCart ) +'</pre>' );
 
@@ -121,8 +121,7 @@ function ajaxAction( aDataObject ){
 
                 if ( data.trim() === 'SUCCESSFUL' ) {
 
-                    var anImageSrc = aDataObject.img;
-                    getShoppingCart( anImageSrc );
+                    getShoppingCart();
 
                 }
 
@@ -134,6 +133,28 @@ function ajaxAction( aDataObject ){
                 saveShoppingCartToSession();
                 updateShoppingCartText();
 
+                ajaxAction( { action: 'get' } );
+
+            } else if ( aDataObject.action === 'update'  ) {
+
+                if ( aDataObject.field === 'amount' ) {
+
+                    shoppingCart[ aDataObject.arrayIndex ][ 'amount' ] = aDataObject.newValue;
+
+                } else if ( aDataObject.field === 'dateFrom' ) {
+
+                    shoppingCart[ aDataObject.arrayIndex ][ 'fromDate' ] = aDataObject.newValue;
+
+                } else if ( aDataObject.field === 'dateTo' ) {
+
+                    shoppingCart[ aDataObject.arrayIndex ][ 'toDate' ] = aDataObject.newValue;
+
+                }
+
+                saveShoppingCartToSession();
+                updateShoppingCartText();
+
+                ajaxAction( { action: 'get' } );
             }
         }
     });
@@ -172,7 +193,7 @@ function addToShoppingCart( anArtNo, aProductName, anImgSrc, aDesc, aFromDate, a
         artNo: anArtNo,
         fromDate: aFromDate,
         toDate: aToDate,
-        img: anImgSrc
+        url: anImgSrc
     };
     ajaxAction( dataObject );
 }
@@ -187,7 +208,7 @@ function updateShoppingCartText() {
 
     if (noArts === 0) {
         textHolder.text('Orderlistan är tom');
-    } else if (noArts == 1) {
+    } else if (noArts === 1) {
         textHolder.text(noArts + ' Produkt');
     } else {
         textHolder.text(noArts + ' Produkter');
@@ -227,7 +248,7 @@ function saveShoppingCartToSession(){
                 productName         = contentContainer.find( '.bvArentoProductName' ).text(),
                 fromDate            = contentContainer.find( 'input[name="daterange"]' ).first().val(),
                 toDate              = contentContainer.find( 'input[name="daterange"]' ).last().val(),
-                imgSrc              = contentContainer.parent().find( '.bvArentoProductImage img' ).attr( 'src' ),
+                url                 = contentContainer.parent().find( '.bvArentoProductImage img' ).attr( 'src' ),
                 desc                = '';
 
             if ( !fromDate ) {
@@ -242,7 +263,7 @@ function saveShoppingCartToSession(){
                 desc += jq( k ).text() + ' ';
             } );
 
-            addToShoppingCart( artNo, productName, imgSrc, desc, fromDate, toDate );
+            addToShoppingCart( artNo, productName, url, desc, fromDate, toDate );
 
         });
     }
@@ -250,9 +271,9 @@ function saveShoppingCartToSession(){
     function addClickRemoveItemInShoppingCart(){
 
         jq( '.ShoppingCartAdminRemove' ).on( 'click', function( e ){
-            var that       = jq( this ),
-                parentLi   = that.closest( 'li' ),
-                index      = parentLi.index(),
+            var that            = jq( this ),
+                parentLi        = that.closest( 'li' ),
+                index           = parentLi.index(),
                 productToRemove = shoppingCart[ index ];
 
             productToRemove.action = 'delete';
@@ -262,7 +283,7 @@ function saveShoppingCartToSession(){
         });
     }
 
-    function addEmptyShoppingCart(){
+    function addClickEmptyShoppingCart(){
 
         jq( '.shoppingCartEmptyCart button' ).on( 'click', function( e ){
 
@@ -274,14 +295,64 @@ function saveShoppingCartToSession(){
 
             jq( '#shoppingCartViewItems' ).empty();
         });
+    }
 
+    function addChangeDateCalendar() {
+
+        jq( '.ShoppingCartAdminDates input' ).on( 'change', function( e ){
+
+            var that                = jq( this ),
+                productContainer    = that.closest( 'li' ),
+                index               = productContainer.index(),
+                productObject       = shoppingCart[ index ],
+                fieldClass;
+
+            if ( jq( e.target ).hasClass( 'from') ) {
+                fieldClass = 'From';
+            } else {
+                fieldClass = 'To';
+            }
+
+            productObject.action = 'update';
+            productObject.field = 'date' + fieldClass;
+            productObject.arrayIndex = index;
+            productObject.newValue = e.target.value;
+
+            ajaxAction( productObject );
+
+        } );
+
+    }
+
+    function addChangeAmountSpinner() {
+
+        jq( '.ShoppingCartAdminAmount input' ).on( 'change', function( e ){
+
+            var that                = jq( this ),
+                productContainer    = that.closest( 'li' ),
+                index               = productContainer.index(),
+                newValue            = productContainer.find( 'input' ).val(),
+                productObject       = shoppingCart[ index ];
+
+            productObject.amount = newValue;
+            productObject.action = 'update';
+            productObject.field = 'amount';
+            productObject.arrayIndex = index;
+            productObject.newValue = newValue;
+
+            ajaxAction( productObject );
+
+        });
     }
 
     jq( window ).on( 'load', function( e ){
         addClickOrderButton();
         addClickToShoppingCart();
         addClickRemoveItemInShoppingCart();
-        addEmptyShoppingCart();
+        addClickEmptyShoppingCart();
+        addChangeAmountSpinner();
+
+        addChangeDateCalendar();
 
         if ( shoppingCart.length > 0 ) {
             updateShoppingCartText();
@@ -290,11 +361,12 @@ function saveShoppingCartToSession(){
 
     /* Shopping cart number spinner */
     jq( document ).on( 'click', '.number-spinner button', function () {
-        var btn = jq(this),
-            oldValue = btn.closest('.number-spinner').find('input').val().trim(),
+        var btn         = jq(this),
+            input       = btn.closest( '.number-spinner' ).find( 'input' ),
+            oldValue    = input.val().trim(),
             newVal = 0;
 
-        if ( btn.attr('data-dir') == 'up' ) {
+        if ( btn.attr('data-dir') === 'up' ) {
             newVal = parseInt( oldValue ) + 1;
         } else {
             if ( oldValue > 1 ) {
@@ -303,7 +375,9 @@ function saveShoppingCartToSession(){
                 newVal = 1;
             }
         }
-        btn.closest( '.number-spinner' ).find( 'input' ).val(newVal);
+        input.val( newVal );
+        input.trigger( 'change' );
+
     });
     /* Shopping cart number spinner */
 
