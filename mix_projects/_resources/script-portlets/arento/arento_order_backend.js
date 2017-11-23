@@ -183,13 +183,11 @@
 
                 newValue = request.getParameter( 'newValue' );
                 xmlToSend = updateItem( rentalCodeParam2, amountParam, newValue, toDateParam, itemIDParam );
-                out.println( xmlToSend );
 
             } else if ( field.equals( 'dateTo' ) ) {
 
                 newValue = request.getParameter( 'newValue' );
                 xmlToSend = updateItem( rentalCodeParam2, amountParam, fromDateParam, newValue, itemIDParam );
-                out.println( xmlToSend );
 
             } else {
 
