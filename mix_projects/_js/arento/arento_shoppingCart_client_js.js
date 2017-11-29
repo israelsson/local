@@ -45,16 +45,18 @@ function createLocalProduct( anItem ) {
 
     'use strict';
 
-    var product             = {};
-    product.amount      = anItem[ 'amount' ];
-    product.days        = anItem[ 'days' ];
-    product.description = anItem[ 'description' ];
-    product.fromDate    = anItem[ 'fromDate' ];
-    product.itemID      = anItem[ 'itemID' ];
-    product.price       = anItem[ 'price' ];
-    product.rentalCode  = anItem[ 'rentalCode' ];
-    product.toDate      = anItem[ 'toDate' ];
-    product.url         = anItem[ 'url' ];
+    var product                 = {};
+    product.amount              = anItem[ 'amount' ];
+    product.days                = anItem[ 'days' ];
+    product.description         = anItem[ 'description' ];
+    product.fromDate            = anItem[ 'fromDate' ];
+    product.itemID              = anItem[ 'itemID' ];
+    product.price               = anItem[ 'price' ];
+    product.rentalCode          = anItem[ 'rentalCode' ];
+    product.toDate              = anItem[ 'toDate' ];
+    product.url                 = anItem[ 'url' ];
+    product.incurancePrice      = anItem[ 'incurancePrice' ];
+    product.insurancePercentage = anItem[ 'insurancePercentage' ];
 
     return product;
 }
@@ -76,6 +78,10 @@ function getShoppingCart(){
             var responseJSON = JSON.parse( data ),
                 item = responseJSON[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'item' ],
                 isItemArray = Array.isArray( item );
+
+            if ( !item ) {
+                return;
+            }
 
             if ( isItemArray ) {
 
@@ -112,9 +118,12 @@ function ajaxAction( aDataObject ){
         success: function( data ) {
 
             if ( aDataObject.action === 'get' ) {
+
                 jsonResponseGetCart = JSON.parse( data );
                 jq( '.shoppingCartSummary pre' ).remove();
                 jq( '.shoppingCartTotalPrice' ).text( jsonResponseGetCart[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'totalPrice' ] );
+                jq( '.shoppingCartTotalProductPrice' ).text( jsonResponseGetCart[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'totalProductPrice' ] );
+                jq( '.shoppingCartTotalInsurancePrice' ).text( jsonResponseGetCart[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'totalInsurancePrice' ] );
                 jq( '.shoppingCartSummary' ).append( '<pre style="white-space: pre-wrap;">'+ JSON.stringify( jsonResponseGetCart ) +'</pre>' );
 
             } else if ( aDataObject.action === 'add' ) {
@@ -353,6 +362,8 @@ function saveShoppingCartToSession(){
         addChangeAmountSpinner();
 
         addChangeDateCalendar();
+
+        getShoppingCart();
 
         if ( shoppingCart.length > 0 ) {
             updateShoppingCartText();
