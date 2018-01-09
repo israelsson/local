@@ -15,25 +15,25 @@ var BV = BV || {},
         // Figure out if we're getting a template, or if we need to
         // load the template - and be sure to cache the result.
         var fn = !/\W/.test( str ) ?
-            cache[ str ] = cache[ str ] ||
-                tmpl( document.getElementById( str ).innerHTML ) :
+                 cache[ str ] = cache[ str ] ||
+                                tmpl( document.getElementById( str ).innerHTML ) :
             // Generate a reusable function that will serve as a template
             // generator (and which will be cached).
-            new Function( "obj",
-                "var p=[],print=function(){p.push.apply(p,arguments);};" +
-                // Introduce the data as local variables using with(){}
-                "with(obj){p.push('" +
-                // Convert the template into pure JavaScript
+                 new Function( "obj",
+                     "var p=[],print=function(){p.push.apply(p,arguments);};" +
+                     // Introduce the data as local variables using with(){}
+                     "with(obj){p.push('" +
+                     // Convert the template into pure JavaScript
 
-                str
-                    .replace( /[\r\t\n]/g, " " )
-                    .split( "<%" ).join( "\t" )
-                    .replace( /((^|%>)[^\t]*)'/g, "$1\r" )
-                    .replace( /\t=(.*?)%>/g, "',$1,'" )
-                    .split( "\t" ).join( "');" )
-                    .split( "%>" ).join( "p.push('" )
-                    .split( "\r" ).join( "\\'" ) +
-                "');}return p.join('');" );
+                     str
+                         .replace( /[\r\t\n]/g, " " )
+                         .split( "<%" ).join( "\t" )
+                         .replace( /((^|%>)[^\t]*)'/g, "$1\r" )
+                         .replace( /\t=(.*?)%>/g, "',$1,'" )
+                         .split( "\t" ).join( "');" )
+                         .split( "%>" ).join( "p.push('" )
+                         .split( "\r" ).join( "\\'" ) +
+                     "');}return p.join('');" );
         // Provide some basic currying to the user
         return data ? fn( data ) : fn;
     };
@@ -75,9 +75,24 @@ function getShoppingCart(){
             // Make sure to empty shopping cart before to build it
             shoppingCart = [];
 
+            if ( data === '' ) {
+                return;
+            }
+
             var responseJSON = JSON.parse( data ),
-                item = responseJSON[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'item' ],
-                isItemArray = Array.isArray( item );
+                item, isItemArray;
+
+            if ( jq.isEmptyObject( responseJSON ) ) {
+                return;
+            }
+
+            try {
+                item = responseJSON[ 'response' ][ 'body' ][ 'getCart' ][ 'cart' ][ 'item' ];
+            } catch ( e ) {
+                return;
+            }
+
+            isItemArray = Array.isArray( item );
 
             if ( !item ) {
                 return;
@@ -178,18 +193,18 @@ if ( sessionStorage.getItem( 'shoppingCart' ) === null ) {
 
 /*
  function controlIfProductExistsInShoppingCart( anArtNo ){
-     var localArtNo;
+ var localArtNo;
 
-     for( var i = 0; i < shoppingCart.length; i++) {
-        localArtNo = shoppingCart[ i ].artNo;
-        if ( localArtNo === anArtNo ) {
-            shoppingCart[ i ].amount += 1;
+ for( var i = 0; i < shoppingCart.length; i++) {
+ localArtNo = shoppingCart[ i ].artNo;
+ if ( localArtNo === anArtNo ) {
+ shoppingCart[ i ].amount += 1;
 
-        return true;
-        }
-     }
+ return true;
+ }
+ }
 
-     return false;
+ return false;
  }
  */
 
@@ -241,10 +256,14 @@ function saveShoppingCartToSession(){
         });
     }
 
+    function addZ ( n ){
+        return n < 10 ? '0' + n : '' + n;
+    }
+
     function getTomorrowsDate() {
         var tomorrowsDate = new Date(new Date().getTime() + 24 * 60 * 60 * 1000),
-            day = tomorrowsDate.getDate(),
-            month = tomorrowsDate.getMonth() + 1,
+            day = addZ( tomorrowsDate.getDate() ),
+            month = addZ( tomorrowsDate.getMonth() + 1 ),
             year = tomorrowsDate.getFullYear();
 
         return year + '-' + month + '-' + day;
@@ -329,8 +348,17 @@ function saveShoppingCartToSession(){
 
             ajaxAction( productObject );
 
-        } );
+            if ( fieldClass === 'From' ) {
 
+                productContainer.find( '.ShoppingCartAdminAmountDatePrint span' ).text( productObject.newValue + ' - ' + productObject[ 'toDate' ] );
+
+            } else {
+
+                productContainer.find( '.ShoppingCartAdminAmountDatePrint span' ).text( productObject[ 'fromDate' ] + ' - ' + productObject.newValue );
+
+            }
+
+        } );
     }
 
     function addChangeAmountSpinner() {
@@ -350,6 +378,8 @@ function saveShoppingCartToSession(){
             productObject.newValue = newValue;
 
             ajaxAction( productObject );
+
+            productContainer.find( '.ShoppingCartAdminAmountDatePrint div' ).text( 'Antal: ' + newValue );
 
         });
     }
