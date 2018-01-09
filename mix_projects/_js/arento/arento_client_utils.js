@@ -25,4 +25,20 @@ var _b = _b || {};
 
     };
 
+    _b.createDiv        = function createDiv( aClass ){
+
+        return _b.jq( '<div/>', {
+            class: aClass
+        });
+
+    };
+
+    _b.createButton     = function createButton(){
+
+        return _b.jq( '<button/>', {
+            text: 'Lägg till i orderlistan',
+            class: 'bvOrderButton'
+        });
+    };
+
 }() );
