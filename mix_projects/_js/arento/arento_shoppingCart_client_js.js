@@ -2,7 +2,15 @@
 
 var BV = BV || {},
     // Toolbox Library
-    _b = _b || {};
+    _b = _b || {},
+    jsonResponseGetCart,
+    shoppingCart;
+
+if ( sessionStorage.getItem( 'shoppingCart' ) === null ) {
+    shoppingCart = [];
+} else {
+    shoppingCart = JSON.parse( sessionStorage.getItem( 'shoppingCart' ) );
+}
 
 ( function () {
     /* jshint ignore:start */
@@ -59,6 +67,30 @@ function createLocalProduct( anItem ) {
     product.insurancePercentage = anItem[ 'insurancePercentage' ];
 
     return product;
+}
+
+function updateShoppingCartText() {
+
+    'use strict';
+
+    var noArts = shoppingCart.length,
+        jq = _b.jq,
+        textHolder = jq('.shopingCart > div');
+
+    if (noArts === 0) {
+        textHolder.text('Orderlistan är tom');
+    } else if (noArts === 1) {
+        textHolder.text(noArts + ' Produkt');
+    } else {
+        textHolder.text(noArts + ' Produkter');
+    }
+}
+
+function saveShoppingCartToSession(){
+
+    'use strict';
+
+    sessionStorage.setItem( 'shoppingCart', JSON.stringify( shoppingCart ) );
 }
 
 function getShoppingCart(){
@@ -119,7 +151,6 @@ function getShoppingCart(){
     } );
 }
 
-var jsonResponseGetCart;
 function ajaxAction( aDataObject ){
 
     'use strict';
@@ -184,30 +215,6 @@ function ajaxAction( aDataObject ){
     });
 }
 
-var shoppingCart;
-if ( sessionStorage.getItem( 'shoppingCart' ) === null ) {
-    shoppingCart = [];
-} else {
-    shoppingCart = JSON.parse( sessionStorage.getItem( 'shoppingCart' ) );
-}
-
-/*
- function controlIfProductExistsInShoppingCart( anArtNo ){
- var localArtNo;
-
- for( var i = 0; i < shoppingCart.length; i++) {
- localArtNo = shoppingCart[ i ].artNo;
- if ( localArtNo === anArtNo ) {
- shoppingCart[ i ].amount += 1;
-
- return true;
- }
- }
-
- return false;
- }
- */
-
 function addToShoppingCart( anArtNo, aProductName, anImgSrc, aDesc, aFromDate, aToDate ){
 
     'use strict';
@@ -220,27 +227,6 @@ function addToShoppingCart( anArtNo, aProductName, anImgSrc, aDesc, aFromDate, a
         url: anImgSrc
     };
     ajaxAction( dataObject );
-}
-
-function updateShoppingCartText() {
-
-    'use strict';
-
-    var noArts = shoppingCart.length,
-        jq = _b.jq,
-        textHolder = jq('.shopingCart > div');
-
-    if (noArts === 0) {
-        textHolder.text('Orderlistan är tom');
-    } else if (noArts === 1) {
-        textHolder.text(noArts + ' Produkt');
-    } else {
-        textHolder.text(noArts + ' Produkter');
-    }
-}
-
-function saveShoppingCartToSession(){
-    sessionStorage.setItem( 'shoppingCart', JSON.stringify( shoppingCart ) );
 }
 
 ( function( jq ){
@@ -408,14 +394,22 @@ function saveShoppingCartToSession(){
             newVal = 0;
 
         if ( btn.attr('data-dir') === 'up' ) {
+
             newVal = parseInt( oldValue ) + 1;
+
         } else {
+
             if ( oldValue > 1 ) {
+
                 newVal = parseInt( oldValue ) - 1;
+
             } else {
+
                 newVal = 1;
+
             }
         }
+
         input.val( newVal );
         input.trigger( 'change' );
 
